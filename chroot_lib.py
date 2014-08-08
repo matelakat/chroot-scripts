@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import collections
@@ -87,38 +88,79 @@ def setup(chroot):
             result.die()
 
 
-def enter(chroot):
-    proc_path = os.path.join(chroot, 'proc')
-    sys_path = os.path.join(chroot, 'sys')
-    dev_path = os.path.join(chroot, 'dev')
-    dev_pts_path = os.path.join(chroot, 'dev', 'pts')
+class Chroot(object):
+    def __init__(self, root):
+        self.root = root
+        proc_path = os.path.join(root, 'proc')
+        sys_path = os.path.join(root, 'sys')
+        dev_path = os.path.join(root, 'dev')
+        dev_pts_path = os.path.join(root, 'dev', 'pts')
 
-    preparation_commands = [
-        Command(['mount', '-t', 'proc', 'proc', proc_path]),
-        Command(['mount', '-t', 'sysfs', 'sys', sys_path]),
-        Command(['mount', '-o', 'bind', '/dev', dev_path]),
-        Command(['mount', '-o', 'bind', '/dev/pts', dev_pts_path]),
-    ]
-    teardown_commands = [
-        Command(['umount', dev_pts_path]),
-        Command(['umount', dev_path]),
-        Command(['umount', sys_path]),
-        Command(['umount', proc_path]),
-    ]
-
-    preparation_result = run_till_success(preparation_commands)
-    if preparation_result.failed:
-        run_anyway(teardown_commands)
-        preparation_result.die()
-    else:
-        commands = [
-            Command(['rm', '-f', '/etc/mtab']).in_chroot(chroot),
+        self.preparation_commands = [
+            Command(['mount', '-t', 'proc', 'proc', proc_path]),
+            Command(['mount', '-t', 'sysfs', 'sys', sys_path]),
+            Command(['mount', '-o', 'bind', '/dev', dev_path]),
+            Command(['mount', '-o', 'bind', '/dev/pts', dev_pts_path]),
+            Command(['rm', '-f', '/etc/mtab']).in_chroot(root),
+        ]
+        self.teardown_commands = [
+            Command(['umount', dev_pts_path]),
+            Command(['umount', dev_path]),
+            Command(['umount', sys_path]),
+            Command(['umount', proc_path]),
         ]
 
-        run_till_success(commands)
-        proc = subprocess.Popen(['chroot', chroot])
-        proc.communicate()
-    run_anyway(teardown_commands)
+    def prepare(self):
+        preparation_result = run_till_success(self.preparation_commands)
+        if preparation_result.failed:
+            self.teardown()
+            preparation_result.die()
+
+    def teardown(self):
+        run_anyway(self.teardown_commands)
+
+    @property
+    def config(self):
+        config_path = os.path.normpath(os.path.abspath(self.root + '.json'))
+        if os.path.exists(config_path) and os.path.isfile(config_path):
+            with open(config_path, "rb") as config_file:
+                data = config_file.read()
+            return json.loads(data)
+        return {}
+
+    def _to_internal_commands(self, arg_list):
+        commands = []
+        for args in arg_list:
+            commands.append(Command(args).in_chroot(self.root))
+        return commands
+
+    def stop(self):
+        stop_commands = self._to_internal_commands(
+            self.config.get('stop', []))
+        run_anyway(stop_commands)
+        self.teardown()
+
+    def start(self):
+        start_commands = self._to_internal_commands(
+            self.config.get('start', []))
+
+        self.prepare()
+
+        start_result = run_till_success(start_commands)
+        if start_result.failed:
+            self.stop()
+            start_result.die()
+
+
+def enter(chroot, args=[]):
+    root = Chroot(chroot)
+
+    root.prepare()
+
+    proc = subprocess.Popen(['chroot', chroot] + args)
+    proc.communicate()
+
+    root.teardown()
 
 
 def dump(chroot, dump_file):
