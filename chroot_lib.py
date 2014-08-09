@@ -80,6 +80,7 @@ def setup(chroot):
         Command(['chmod', 'a+x', '/usr/sbin/policy-rc.d']),
         Command(['dpkg-divert', '--divert', '/usr/bin/ischroot.debianutils',
             '--rename', '/usr/bin/ischroot']),
+        Command(['rm', '-f', '/usr/bin/ischroot']),
         Command(['ln', '-s', '/bin/true', '/usr/bin/ischroot'])
     ]
 
