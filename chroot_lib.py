@@ -75,6 +75,19 @@ def setup(chroot):
     exit 101
     """)
 
+    root = Chroot(chroot)
+    hosts = root.get_contents('/etc/hosts')
+    hostname = root.get_contents('/etc/hostname').strip()
+
+    for line in hosts.split('\n'):
+        if "127.0.1.1" in line:
+            if hostname in line:
+                break
+    else:
+        new_hosts_file = "127.0.1.1 {0}\n{1}".format(hostname, hosts)
+        root.set_contents('/etc/hosts', new_hosts_file)
+
+
     commands = [
         Command(['dd', 'of=/usr/sbin/policy-rc.d'], stdin=policy_file_contents),
         Command(['chmod', 'a+x', '/usr/sbin/policy-rc.d']),
@@ -110,6 +123,20 @@ class Chroot(object):
             Command(['umount', sys_path]),
             Command(['umount', proc_path]),
         ]
+
+    def _fullpath(self, path):
+        assert path.startswith('/')
+        path = path[1:]
+        return os.path.join(self.root, path)
+
+
+    def get_contents(self, path):
+        with open(self._fullpath(path), 'rb') as fhandle:
+            return fhandle.read()
+
+    def set_contents(self, path, contents):
+        with open(self._fullpath(path), 'wb') as fhandle:
+            return fhandle.write(contents)
 
     def prepare(self):
         preparation_result = run_till_success(self.preparation_commands)
