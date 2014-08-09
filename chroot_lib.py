@@ -129,6 +129,34 @@ class Chroot(object):
         path = path[1:]
         return os.path.join(self.root, path)
 
+    def sync_to(self, target, link_dest=None):
+        rsync_flags = "-r -h -H -l -g -o -t -D -p --del".split()
+        exclude_dirs = [
+            '/dev/*',
+            '/proc/*',
+            '/sys/*',
+            '/tmp/*',
+            '/run/*',
+            '/mnt/*',
+            '/media/*',
+            '/lost+found',
+            '/home/*/.gvfs',
+        ]
+        exclude_args = [
+            '--exclude={0}'.format(exclude_dir)
+                for exclude_dir in exclude_dirs]
+
+        rsync_flags += exclude_args
+
+        if link_dest:
+            rsync_flags += ['--link-dest={0}'.format(link_dest)]
+
+        command = Command([
+            'rsync'] + rsync_flags + [self.root + '/', target])
+
+        result = run_till_success([command])
+        if result.failed:
+            result.die()
 
     def get_contents(self, path):
         with open(self._fullpath(path), 'rb') as fhandle:
