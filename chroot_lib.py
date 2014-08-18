@@ -31,10 +31,10 @@ class Command(object):
         return Command(['chroot', chroot] + self.args, self.stdin)
 
 
-def debootstrap(tgt_dir, mirror):
+def debootstrap(tgt_dir, mirror, suite):
     proc = subprocess.Popen([
         'debootstrap', '--arch=amd64', '--components=main,universe',
-        '--include=language-pack-en', 'precise', tgt_dir, mirror],
+        '--include=language-pack-en', suite, tgt_dir, mirror],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()
     return ProcResult(returncode=proc.returncode, out=out, err=err)

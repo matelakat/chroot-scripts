@@ -8,6 +8,8 @@ def get_args_or_die(args):
     parser = argparse.ArgumentParser(description="Create a chroot")
     parser.add_argument('target_directory', help="target directory")
     parser.add_argument('mirror', help="ubuntu mirror to use")
+    parser.add_argument('--suite', help="ubuntu suite to use",
+                        default='precise', choices=['precise', 'trusty'])
     return parser.parse_args(args)
 
 
@@ -16,14 +18,16 @@ def check_args(args):
     if os.path.exists(target_directory):
         raise SystemExit(target_directory + " Already exists")
     result = argparse.Namespace(
-        target_directory=target_directory, mirror=args.mirror)
+        target_directory=target_directory, mirror=args.mirror,
+        suite=args.suite)
     return result
 
 
 def main():
     args = check_args(get_args_or_die(sys.argv[1:]))
 
-    result = chroot_lib.debootstrap(args.target_directory, args.mirror)
+    result = chroot_lib.debootstrap(args.target_directory, args.mirror,
+                                    args.suite)
     if result.failed:
         result.die()
 
