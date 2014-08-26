@@ -31,10 +31,13 @@ class Command(object):
         return Command(['chroot', chroot] + self.args, self.stdin)
 
 
-def debootstrap(tgt_dir, mirror, suite):
+def debootstrap(tgt_dir, mirror, suite, minbase):
+    minbase_options = ['--variant=minbase'] if minbase else []
     proc = subprocess.Popen([
         'debootstrap', '--arch=amd64', '--components=main,universe',
-        '--include=language-pack-en', suite, tgt_dir, mirror],
+        '--include=language-pack-en']
+        + minbase_options
+        + [suite, tgt_dir, mirror],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()
     return ProcResult(returncode=proc.returncode, out=out, err=err)

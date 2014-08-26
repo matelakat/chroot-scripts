@@ -10,6 +10,8 @@ def get_args_or_die(args):
     parser.add_argument('mirror', help="ubuntu mirror to use")
     parser.add_argument('--suite', help="ubuntu suite to use",
                         default='precise', choices=['precise', 'trusty'])
+    parser.add_argument('--minbase', help="Create a minimal install",
+                        default=False, action="store_true")
     return parser.parse_args(args)
 
 
@@ -19,7 +21,7 @@ def check_args(args):
         raise SystemExit(target_directory + " Already exists")
     result = argparse.Namespace(
         target_directory=target_directory, mirror=args.mirror,
-        suite=args.suite)
+        suite=args.suite, minbase=args.minbase)
     return result
 
 
@@ -27,7 +29,7 @@ def main():
     args = check_args(get_args_or_die(sys.argv[1:]))
 
     result = chroot_lib.debootstrap(args.target_directory, args.mirror,
-                                    args.suite)
+                                    args.suite, args.minbase)
     if result.failed:
         result.die()
 
